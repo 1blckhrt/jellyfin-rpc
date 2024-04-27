@@ -1,6 +1,5 @@
 // Setting up environment variables
-const { config } = require("dotenv");
-config();
+require("dotenv").config();
 
 // Grabbing environment variables
 const APP_ID = process.env.APP_ID;
@@ -9,7 +8,6 @@ const API_KEY = process.env.JELLYFIN_API_KEY;
 
 // Importing required modules
 const { Client } = require("@xhayper/discord-rpc");
-const axios = require("axios");
 
 // Initializing Discord RPC client
 const client = new Client({ clientId: APP_ID });
@@ -17,17 +15,24 @@ const client = new Client({ clientId: APP_ID });
 // Function to check for active session
 async function checkSession() {
   try {
-    const nowPlaying = await axios.get(`${JELLYFIN_URL}/Sessions?Active=true`, {
+    const response = await fetch(`${JELLYFIN_URL}/Sessions?Active=true`, {
       headers: {
         "X-Emby-Token": API_KEY,
       },
     });
 
-    // If there is a nowPlayingItem, return true
-    return nowPlaying && nowPlaying.data[0]?.NowPlayingItem;
+    // Check if the response is not okay
+    if (!response.ok) {
+      console.error("Error fetching data:", response.statusText);
+      return null;
+    }
+
+    // Parse the response
+    const nowPlaying = await response.json();
+    return nowPlaying && nowPlaying[0]?.NowPlayingItem;
   } catch (error) {
-    console.error(error);
-    return false;
+    console.error("Error fetching data:", error);
+    return null;
   }
 }
 
@@ -60,7 +65,8 @@ async function updatePresence() {
 
 // Ready event
 client.on("ready", async () => {
-  setInterval(updatePresence, 30000); // Check for active sessions every 15 seconds
+  updatePresence(); // Update the presence on startup
+  setInterval(updatePresence, 30000); // Check for active sessions every 30 seconds
 });
 
 client.login();
